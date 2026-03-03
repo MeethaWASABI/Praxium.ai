@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
 
         // Default Users
         const defaultUsers = [
-          { id: 'admin1', role: 'admin', name: 'Admin User', email: 'Aadmin@praxium.ai', password: 'Admin@123' },
+          { id: 'admin1', role: 'admin', name: 'Admin User', email: 'admin@praxium.ai', password: 'Admin@123' },
           { id: 'teacher1', role: 'teacher', name: 'Teacher Dave', email: 'teacher@praxium.ai', password: 'password' },
           { id: 'student1', role: 'student', name: 'Student John', email: 'student@praxium.ai', password: 'password' }
         ];
@@ -61,15 +61,26 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = (identifier, password) => {
+  const login = async (identifier, password) => {
     try {
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      // Allow login with Email OR ID
-      let found = users.find(u => (u.email === identifier || u.id === identifier) && u.password === password);
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password })
+      });
 
-      if (!found) {
-        // --- Smart Login Logic ---
-        // If user not found, check if email contains role keywords and auto-create
+      const data = await res.json();
+
+      if (data.success) {
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        return { success: true };
+      }
+
+      // --- Smart Login Fallback (Client-side) ---
+      // If backend fails/user not found, we still keep the smart login for demo purposes
+      // But only if the error specifically means user not found or we want to allow demo mode
+      if (res.status === 401 || res.status === 404) {
         const lowerEmail = identifier.toLowerCase();
         let detectedRole = null;
 
@@ -78,40 +89,17 @@ export const AuthProvider = ({ children }) => {
         else if (lowerEmail.includes('student')) detectedRole = 'student';
 
         if (detectedRole) {
-          console.log(`Auth: Smart Login detected role '${detectedRole}' for ${identifier}. Auto-creating user.`);
-
-          // Generate consistent ID format (similar to DataContext)
-          const year = new Date().getFullYear();
-          const rolePrefix = detectedRole === 'admin' ? 'ADM' : detectedRole === 'teacher' ? 'FAC' : 'STD';
-          const count = users.filter(u => u.role === detectedRole).length + 1;
-          const newId = `${rolePrefix}-${year}-${String(count).padStart(3, '0')}`;
-
-          const newUser = {
-            id: newId,
-            role: detectedRole,
-            name: identifier.split('@')[0], // Default name from email
-            email: identifier,
-            password: password, // Use key provided
-            permissions: 'standard',
-            completedCourses: []
-          };
-
-          users.push(newUser);
-          localStorage.setItem('users', JSON.stringify(users));
-          found = newUser;
+          console.log(`Auth: Smart Login detected role '${detectedRole}' for ${identifier}.`);
+          // Note: In real production, we'd sync this back to DB. 
+          // For now, we trust the backend is the source of truth, but if it's a new "smart" user, we allow local.
+          // Actually, let's just use the backend response and only fallback if it's a specific developer flag.
         }
       }
 
-      if (found) {
-        const { password, ...safeUser } = found;
-        setUser(safeUser);
-        localStorage.setItem('user', JSON.stringify(safeUser));
-        return { success: true };
-      }
-      return { success: false, message: 'Invalid Credentials' };
+      return { success: false, message: data.message || 'Login Failed' };
     } catch (e) {
-      console.error(e);
-      return { success: false, message: 'Login Error' };
+      console.error('Login error:', e);
+      return { success: false, message: 'Auth system unreachable' };
     }
   };
 
@@ -140,8 +128,21 @@ export const AuthProvider = ({ children }) => {
     window.location.reload();
   };
 
+  const updateProfile = (updates) => {
+    if (!user) return;
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx !== -1) {
+      users[idx] = { ...users[idx], ...updates };
+      localStorage.setItem('users', JSON.stringify(users));
+      const { password, ...safeUser } = users[idx];
+      setUser(safeUser);
+      localStorage.setItem('user', JSON.stringify(safeUser));
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, resetData, refreshUser, loading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, resetData, refreshUser, updateProfile, loading }}>
       {/* Prevent flash of login screen by waiting for init */}
       {loading ? null : children}
     </AuthContext.Provider>

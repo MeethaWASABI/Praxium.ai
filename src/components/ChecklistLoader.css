@@ -5,15 +5,15 @@
     align-items: center;
     justify-content: center;
     height: 400px;
-    font-family: 'Inter', sans-serif;
 }
 
 .checklist-card {
-    background: white;
+    background: var(--bg-card);
     width: 250px;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    padding: 24px;
+    border-radius: var(--card-radius);
+    box-shadow: var(--shadow-clay);
+    border: 1px solid rgba(255, 255, 255, 0.6);
     position: relative;
     overflow: hidden;
 }
@@ -21,7 +21,7 @@
 /* Header bar */
 .checklist-header {
     height: 8px;
-    background: #5C6BC0;
+    background: var(--primary);
     border-radius: 4px;
     margin-bottom: 20px;
     width: 100%;
@@ -51,8 +51,8 @@
 }
 
 .checklist-box.checked {
-    background: #5C6BC0;
-    border-color: #5C6BC0;
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 .checklist-box .material-icons {
@@ -110,9 +110,10 @@
 /* Caption Text below card */
 .checklist-caption {
     margin-top: 30px;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     font-weight: 800;
-    color: #1a1a1a;
+    color: var(--text-main);
+    letter-spacing: -0.01em;
     animation: fadeText 2s infinite ease-in-out;
 }
 

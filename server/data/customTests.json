@@ -1,0 +1,21 @@
+[
+  {
+    "teacherId": "FAC-2026-002",
+    "title": "Physics End of Term",
+    "duration": 45,
+    "questions": [
+      {
+        "text": "What is the speed of light in vacuum?",
+        "correctAnswer": "3x10^8 m/s",
+        "options": [
+          "3x10^8 m/s",
+          "3x10^5 m/s",
+          "3x10^10 m/s",
+          "None"
+        ]
+      }
+    ],
+    "id": "1772213949190",
+    "createdAt": "2026-02-27T17:39:09.190Z"
+  }
+]

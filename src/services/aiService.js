@@ -112,10 +112,18 @@ export const askTutor = async (courseTitle, moduleTitle, moduleContent, userQues
     return await generateAIResponse(prompt);
 };
 
-export const generateQuiz = async (courseTitle) => {
+export const generateQuiz = async (courseTitle, contextType = "practice", difficulty = "medium") => {
     // Add randomness to prompt to avoid caching
     const seed = Date.now();
-    const prompt = `Generate a UNIQUE and FRESH 20-question multiple-choice quiz for the course "${courseTitle}". Ensure questions are different from previous sets. Seed: ${seed}. Return ONLY valid JSON in this format: { "questions": [{ "id": 1, "text": "Question?", "options": ["A", "B", "C", "D"], "correctAnswer": "Correct Option Text" }] }`;
+    let promptContext = "";
+
+    if (contextType === "placement") {
+        promptContext = `This is a highly technical **PLACEMENT/RECRUITMENT TEST**. The questions must evaluate the candidate's deep conceptual understanding, common edge cases, and practical application related to "${courseTitle}" at a **${difficulty.toUpperCase()}** difficulty level. Avoid basic definitions. Output exactly 15 questions.`;
+    } else {
+        promptContext = `This is a learning **PRACTICE QUIZ**. The questions should reinforce the fundamental concepts of "${courseTitle}" at a **${difficulty.toUpperCase()}** difficulty level to help a student study. Output exactly 10 questions.`;
+    }
+
+    const prompt = `Generate a UNIQUE and FRESH multiple-choice quiz. ${promptContext} Ensure questions are different from previous sets. Seed: ${seed}. Return ONLY valid JSON in this format: { "questions": [{ "id": 1, "text": "Question?", "options": ["A", "B", "C", "D"], "correctAnswer": "Correct Option Text" }] }`;
     try {
         const text = await generateAIResponse(prompt);
         if (!text || text.startsWith("Error:")) {
@@ -244,5 +252,36 @@ export const generateLevelContent = async (topic, level) => {
                 correctAnswer: "Understanding core concepts"
             }
         };
+    }
+};
+
+export const generateQuestionsFromImage = async (imageFile) => {
+    const prompt = `
+        Analyze this image containing educational questions, a quiz, or exam paper. 
+        Extract the questions and their multiple-choice options. 
+        If the correct answer is indicated (e.g., marked, circled, or at the end), use it. Otherwise, use your expert knowledge to determine the correct answer.
+        If a question doesn't have options in the image, generate 4 plausible options for it yourself, ensuring one of them is the correct answer.
+        IMPORTANT: Return ONLY valid JSON in the following format:
+        {
+            "questions": [
+                {
+                    "text": "Question text here?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correctAnswer": "The exact text of the correct option"
+                }
+            ]
+        }
+    `;
+
+    try {
+        const text = await generateAIResponse(prompt, imageFile);
+        if (!text || text.startsWith("Error:")) {
+            console.error("Image to Assessment Failed:", text);
+            return null;
+        }
+        return JSON.parse(cleanJSON(text));
+    } catch (e) {
+        console.error("Image Parsing Error", e);
+        return null;
     }
 };

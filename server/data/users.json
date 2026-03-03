@@ -35,7 +35,9 @@
     "password": "password",
     "permissions": "standard",
     "completedCourses": [],
-    "achievements": []
+    "achievements": [],
+    "lastLoginDate": "2026-02-25T17:48:07.788Z",
+    "currentStreak": 2
   },
   {
     "id": "henry_student",
@@ -70,13 +72,21 @@
     "id": "STD-2026-004",
     "photo": null,
     "completedCourses": [],
-    "lastLoginDate": "2026-02-03T08:46:31.353Z",
-    "currentStreak": 1,
+    "lastLoginDate": "2026-02-27T21:42:17.741Z",
+    "currentStreak": 5,
     "completedModules": {
       "c2": [
-        "Custom Hooks"
+        "Custom Hooks",
+        "Compound Components",
+        "Controlled vs Uncontrolled",
+        "Reusable Component Design"
+      ],
+      "c1": [
+        "What is AI?"
       ]
-    }
+    },
+    "bio": "",
+    "personalEmail": ""
   },
   {
     "id": "FAC-2026-003",

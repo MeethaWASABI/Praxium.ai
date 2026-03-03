@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @unique
+  name             String
+  email            String   @unique
+  password         String
+  role             String   // e.g., 'admin', 'teacher', 'student'
+  permissions      String   @default("standard")
+  phone            String?
+  bio              String?
+  personalEmail    String?
+  photo            String?  // URL or path
+  streak           Int      @default(0)
+  currentStreak    Int      @default(0)
+  
+  // Relations
+  authoredCourses  Course[]        @relation("CourseAuthor")
+  enrollments      Enrollment[]
+  placementProfile PlacementProfile?
+  assessments      Assessment[]
+  activityLogs     ActivityLog[]
+  
+  // Legacy JSON fields (keep for backward compatibility if needed, or migrate data out later)
+  completedCourses Json?
+  achievements     Json?
+  completedModules Json?
+  
+  lastLoginDate    DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Educational Content
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  level       String   @default("Beginner") // Beginner, Intermediate, Advanced
+  tags        String[]
+  
+  authorId    String
+  author      User     @relation("CourseAuthor", fields: [authorId], references: [id])
+  
+  modules     Module[]
+  enrollments Enrollment[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Module {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  orderIndex  Int      @default(0)
+  
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  lessons     Lesson[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Lesson {
+  id          String   @id @default(uuid())
+  title       String
+  content     String?  // Text or markdown content
+  videoUrl    String?
+  orderIndex  Int      @default(0)
+  
+  moduleId    String
+  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// User Progress & Enrollment
+model Enrollment {
+  id              String   @id @default(uuid())
+  progressPercent Float    @default(0.0)
+  status          String   @default("active") // active, completed, dropped
+  
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId        String
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, courseId])
+}
+
+// Placement & Analytics
+model PlacementProfile {
+  id                 String   @id @default(uuid())
+  overallScore       Float    @default(0.0)
+  technicalScore     Float    @default(0.0)
+  communicationScore Float    @default(0.0)
+  resumeScore        Float    @default(0.0)
+  status             String   @default("ready") // ready, placed, looking
+  company            String?  // If placed
+  
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Assessment {
+  id          String   @id @default(uuid())
+  title       String
+  type        String   // technical, cultural, communication
+  score       Float
+  maxScore    Float    @default(100.0)
+  feedback    String?
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+}
+
+// General Platform Activity
+model ActivityLog {
+  id          String   @id @default(uuid())
+  action      String   // e.g., "login", "course_completed", "assessment_taken"
+  details     Json?    // Any extra contextual data
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+}

@@ -15,6 +15,7 @@ export const DataProvider = ({ children }) => {
     const [meetings, setMeetings] = useState([]);
     const [chats, setChats] = useState([]);
     const [tickets, setTickets] = useState([]); // { id, userId, subject, description, status, date, type }
+    const [customTests, setCustomTests] = useState([]); // { id, teacherId, title, duration, questions: [] }
     const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: null, onCancel: null, type: 'info', confirmText: 'OK', cancelText: 'Cancel' });
 
     // --- Persistence Helper ---
@@ -71,6 +72,7 @@ export const DataProvider = ({ children }) => {
                 loadData('meetings', setMeetings),
                 loadData('chats', setChats),
                 loadData('tickets', setTickets),
+                loadData('customTests', setCustomTests),
                 loadData('suggestedCourses', setSuggestedCourses)
             ]);
 
@@ -609,6 +611,22 @@ export const DataProvider = ({ children }) => {
         return users.filter(u => uniqueTeacherIds.includes(u.id));
     }, [enrollments, courseAssignments, users]);
 
+    // --- Custom Teacher Tests ---
+    const addCustomTest = useCallback(async (testData) => {
+        const newTest = { ...testData, id: Date.now().toString(), createdAt: new Date().toISOString() };
+        setCustomTests(prev => {
+            const updated = [...prev, newTest];
+            // Since saveData hits the backend or localstorage
+            saveData('customTests', updated);
+            return updated;
+        });
+        return newTest;
+    }, [saveData]);
+
+    const getCustomTestsForTeacher = useCallback((teacherId) => {
+        return customTests.filter(t => t.teacherId === teacherId);
+    }, [customTests]);
+
     // 10. Modals
     const openModal = useCallback((config) => {
         setModalConfig({
@@ -633,20 +651,22 @@ export const DataProvider = ({ children }) => {
     // However, because we are creating a single object, ANY change to one state updates the entire context object ref.
     // That's unavoidable with a single context. But `useCallback` ensures function identities are stable where possible.
     const contextValue = useMemo(() => ({
-        users, courses, books, enrollments, courseAssignments, courseBooks, meetings, chats, darkMode, suggestedCourses, tickets,
+        users, courses, books, enrollments, courseAssignments, courseBooks, meetings, chats, darkMode, suggestedCourses, tickets, customTests,
         addUser: addUserImperative, updateUser, deleteUser, markCourseComplete, markModuleComplete,
         addCourse, updateCourse, updateCourseAssignment, addBook, enrollStudent, assignTeacher, addBookToCourse, scheduleMeeting, sendMessage, toggleTheme,
         addSuggestedCourse, updateSuggestedProgress, awardBadge, checkStreaks,
         getStudentsForCourse, getCoursesForStudent, getCoursesForTeacher, getBooksForCourse, getStudentsForTeacher, getTeachersForStudent, getChats,
         addTicket, resolveTicket,
+        addCustomTest, getCustomTestsForTeacher,
         openModal, closeModal, modalConfig
     }), [
-        users, courses, books, enrollments, courseAssignments, courseBooks, meetings, chats, darkMode, suggestedCourses, tickets, modalConfig,
+        users, courses, books, enrollments, courseAssignments, courseBooks, meetings, chats, darkMode, suggestedCourses, tickets, customTests, modalConfig,
         addUserImperative, updateUser, deleteUser, markCourseComplete, markModuleComplete,
         addCourse, updateCourse, updateCourseAssignment, addBook, enrollStudent, assignTeacher, addBookToCourse, scheduleMeeting, sendMessage, toggleTheme,
         addSuggestedCourse, updateSuggestedProgress, awardBadge, checkStreaks,
         getStudentsForCourse, getCoursesForStudent, getCoursesForTeacher, getBooksForCourse, getStudentsForTeacher, getTeachersForStudent, getChats,
         addTicket, resolveTicket,
+        addCustomTest, getCustomTestsForTeacher,
         openModal, closeModal
     ]);
 

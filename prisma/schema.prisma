@@ -1,0 +1,357 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ──────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum TestType {
+  MCQ
+  CODING
+  MIXED
+}
+
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ─── USERS ──────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(STUDENT)
+  avatar    String?
+  phone     String?
+  bio       String?
+
+  // JSONB fields
+  skillVector Json?  @db.JsonB  // skill embeddings / proficiency vector
+  weakTopics  Json?  @db.JsonB  // AI-detected weak areas
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  taughtCourses   Course[]        @relation("TeacherCourses")
+  enrollments     Enrollment[]
+  testResults     TestResult[]
+  aiSuggestions   AISuggestion[]
+  placementScores PlacementScore[]
+  interviews      Interview[]
+  sentMessages    Message[]       @relation("SentMessages")
+  receivedMessages Message[]      @relation("ReceivedMessages")
+  tickets         Ticket[]        @relation("TicketAuthor")
+  assignedTickets Ticket[]        @relation("TicketAssignee")
+  hostedMeetings  Meeting[]       @relation("MeetingHost")
+  attendedMeetings Meeting[]      @relation("MeetingAttendees")
+
+  @@index([email])
+  @@index([role])
+}
+
+// ─── COURSES ────────────────────────────────────────────
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  thumbnail   String?
+  category    String?
+  difficulty  String?  // Beginner, Intermediate, Advanced
+  isPublished Boolean  @default(false)
+
+  teacherId   String
+  teacher     User     @relation("TeacherCourses", fields: [teacherId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  modules     Module[]
+  enrollments Enrollment[]
+  tests       Test[]
+
+  @@index([teacherId])
+  @@index([category])
+}
+
+// ─── MODULES ────────────────────────────────────────────
+
+model Module {
+  id          String   @id @default(cuid())
+  title       String
+  content     String?  @db.Text
+  order       Int
+  duration    Int?     // minutes
+  videoUrl    String?
+  isLocked    Boolean  @default(true)
+
+  courseId     String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([courseId, order])
+}
+
+// ─── ENROLLMENTS ────────────────────────────────────────
+
+model Enrollment {
+  id             String   @id @default(cuid())
+  progress       Float    @default(0)  // 0-100
+  completedModules Json?  @db.JsonB    // array of module IDs
+
+  studentId      String
+  student        User     @relation(fields: [studentId], references: [id])
+
+  courseId        String
+  course          Course   @relation(fields: [courseId], references: [id])
+
+  enrolledAt     DateTime @default(now())
+  completedAt    DateTime?
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+}
+
+// ─── TESTS ──────────────────────────────────────────────
+
+model Test {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  type        TestType   @default(MCQ)
+  status      TestStatus @default(DRAFT)
+  duration    Int        // minutes
+  totalMarks  Int
+  passingMarks Int?
+  subject     String?
+
+  courseId     String?
+  course      Course?    @relation(fields: [courseId], references: [id])
+
+  aiMetadata  Json?      @db.JsonB  // AI generation config, difficulty params
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  questions   TestQuestion[]
+  results     TestResult[]
+
+  @@index([courseId])
+  @@index([subject])
+  @@index([status])
+}
+
+// ─── TEST QUESTIONS ─────────────────────────────────────
+
+model TestQuestion {
+  id          String   @id @default(cuid())
+  question    String   @db.Text
+  type        String   // "mcq" or "coding"
+  options     Json?    @db.JsonB  // MCQ options array
+  answer      String?  @db.Text   // correct answer / expected output
+  explanation String?  @db.Text
+  marks       Int      @default(1)
+  order       Int
+
+  // Coding-specific
+  starterCode String?  @db.Text
+  testCases   Json?    @db.JsonB  // [{input, expectedOutput}]
+  language    String?  // "javascript", "python", etc.
+
+  testId      String
+  test        Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@index([testId, order])
+}
+
+// ─── TEST RESULTS ───────────────────────────────────────
+
+model TestResult {
+  id           String   @id @default(cuid())
+  score        Float
+  totalMarks   Int
+  percentage   Float
+  timeTaken    Int?     // seconds
+  answers      Json?    @db.JsonB  // student's answers
+  violations   Int      @default(0) // anti-cheat violation count
+
+  studentId    String
+  student      User     @relation(fields: [studentId], references: [id])
+
+  testId       String
+  test         Test     @relation(fields: [testId], references: [id])
+
+  submittedAt  DateTime @default(now())
+
+  @@index([studentId])
+  @@index([testId])
+  @@index([studentId, testId])
+}
+
+// ─── AI SUGGESTIONS ─────────────────────────────────────
+
+model AISuggestion {
+  id          String   @id @default(cuid())
+  topic       String
+  reason      String?  @db.Text
+  priority    Int      @default(0)  // 0 = low, higher = more urgent
+  isCompleted Boolean  @default(false)
+  aiMetadata  Json?    @db.JsonB    // model version, confidence scores
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isCompleted])
+}
+
+// ─── PLACEMENT SCORES ───────────────────────────────────
+
+model PlacementScore {
+  id           String   @id @default(cuid())
+  readiness    Float    // 0-100
+  probability  Float    // 0-100
+  skillVector  Json?    @db.JsonB  // detailed skill breakdown
+  weakTopics   Json?    @db.JsonB  // areas needing improvement
+  strengths    Json?    @db.JsonB  // strong areas
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+
+  calculatedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── INTERVIEWS ─────────────────────────────────────────
+
+model Interview {
+  id           String   @id @default(cuid())
+  title        String
+  type         String   // "mock", "real", "ai-practice"
+  status       String   @default("scheduled")  // scheduled, in_progress, completed
+  score        Float?
+  feedback     String?  @db.Text
+  transcript   Json?    @db.JsonB   // full interview transcript
+  aiMetadata   Json?    @db.JsonB   // AI analysis, sentiment, etc.
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+// ─── MESSAGES ───────────────────────────────────────────
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  isRead    Boolean  @default(false)
+  type      String   @default("text")  // text, file, system
+
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+
+  receiverId  String
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([senderId, receiverId])
+}
+
+// ─── TICKETS ────────────────────────────────────────────
+
+model Ticket {
+  id          String         @id @default(cuid())
+  title       String
+  description String         @db.Text
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  category    String?
+
+  authorId    String
+  author      User           @relation("TicketAuthor", fields: [authorId], references: [id])
+
+  assigneeId  String?
+  assignee    User?          @relation("TicketAssignee", fields: [assigneeId], references: [id])
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([authorId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+// ─── MEETINGS ───────────────────────────────────────────
+
+model Meeting {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  link        String?  // video call link
+  date        DateTime
+  duration    Int?     // minutes
+  status      String   @default("scheduled")  // scheduled, live, completed, cancelled
+
+  hostId      String
+  host        User     @relation("MeetingHost", fields: [hostId], references: [id])
+
+  attendees   User[]   @relation("MeetingAttendees")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([hostId])
+  @@index([date])
+}

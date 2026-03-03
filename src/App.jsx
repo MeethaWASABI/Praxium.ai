@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 // IMPORT TEST: Checking if this file causes a crash just by being imported
+import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 import AuthPage from './components/AuthPage';
@@ -8,6 +9,7 @@ import TeacherDashboard from './components/dashboards/TeacherDashboard';
 import StudentDashboard from './components/dashboards/StudentDashboard';
 import LoadingScreen from './components/LoadingScreen';
 import BauhausModal from './components/common/BauhausModal';
+import StandaloneTestWindow from './components/StandaloneTestWindow';
 
 function AppContent() {
   const { user } = useAuth();
@@ -76,19 +78,31 @@ class ErrorBoundary extends React.Component {
 function App() {
   const [loading, setLoading] = useState(true);
 
+  const isPlacementTestPopup = window.location.search.includes('placementTest=true');
+
+  if (isPlacementTestPopup) {
+    return (
+      <ErrorBoundary>
+        <StandaloneTestWindow />
+      </ErrorBoundary>
+    );
+  }
+
   if (loading) {
     return <LoadingScreen onComplete={() => setLoading(false)} />;
   }
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <DataProvider>
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
-        </DataProvider>
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <DataProvider>
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
+          </DataProvider>
+        </AuthProvider>
+      </SettingsProvider>
     </ErrorBoundary>
   );
 }
