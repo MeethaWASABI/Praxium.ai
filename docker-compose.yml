@@ -107,8 +107,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@praxium.in}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-your_email}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-your_password}
     ports:
       - "5050:80"
     networks:
